@@ -241,6 +241,7 @@ body.locked header.top,body.locked main{display:none}
       <h1>UAE Host Pipeline</h1>
       <span class="sub">Holiday-home operators and Airbnb hosts across the Emirates</span>
       <span class="spacer"></span>
+      <a class="crumb" href="first-class/" style="font-size:13px;text-decoration:none">First Class audit →</a>
       <label class="actor" id="actor-wrap" hidden>Editing as <input id="actor" placeholder="Your name" autocomplete="name" maxlength="60"></label>
       <span class="access" id="access">Connecting…</span>
       <button class="linkish" id="leave" hidden>Sign out</button>
@@ -788,7 +789,7 @@ window.addEventListener("hashchange",()=>{
 /* ---------- boot ---------- */
 async function refetch(){
   const [p,h]=await Promise.all([
-    sb.from("prospects").select("id,data,updated_at,deleted_at").limit(5000),
+    sb.from("prospects").select("id,data,updated_at,deleted_at").not("id","like","report:%").limit(5000),
     sb.from("history").select("*").order("at",{ascending:false}).limit(500)]);
   if(p.error) throw p.error;
   S.rows=new Map(); S.deleted=new Map();
@@ -813,7 +814,7 @@ async function startApp(){
   const stopPoll=()=>{ if(poll){clearInterval(poll); poll=null} if(S.stale){S.stale=false; schedule()} };
   channel=sb.channel("crm")
     .on("postgres_changes",{event:"*",schema:"public",table:"prospects"},p=>{
-      const x=p.new; if(!x||!x.id){ if(p.old?.id){S.rows.delete(p.old.id)} schedule(); return }
+      const x=p.new; if((x&&String(x.id).startsWith("report:"))||String(p.old?.id||"").startsWith("report:")) return; if(!x||!x.id){ if(p.old?.id){S.rows.delete(p.old.id)} schedule(); return }
       if(x.deleted_at){ S.rows.delete(x.id); S.deleted.set(x.id,toRow(x)) } else { S.deleted.delete(x.id); S.rows.set(x.id,toRow(x)) }
       renderSelects(); schedule();
     })

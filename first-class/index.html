@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>First Class Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: quiet header with stage tabs, then one working surface (table, board or history); record detail slides in from the right.
+   Deliberately light-only: near-white ground, hairline rules, one teal accent. */
+:root{
+  color-scheme:light;
+  --bg:#FAFBFB; --surface:#FFFFFF; --sunk:#F3F5F5; --hover:#F6F8F8;
+  --ink:#1B2120; --muted:#69726F; --faint:#A2AAA8; --line:#E9EDEC;
+  --accent:#0F766E; --accent-ink:#FFFFFF; --accent-soft:#E8F3F1;
+  --s-new:#A2AAA8; --s-research:#5B8BD0; --s-contact:#D08A2E; --s-reply:#8F6AD6; --s-meet:#0F9A85; --s-won:#3E9B4C; --s-lost:#D0645B;
+  --good:#3E9B4C; --warn:#C27F22; --bad:#C2524A;
+  --shadow:0 16px 48px rgba(20,40,36,.10);
+  --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+a{color:var(--accent)}
+button,select,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1440px;margin-inline:auto}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.titlebar{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding-block:18px 8px}
+h1{font:600 18px/1.2 var(--f-body);letter-spacing:-.01em;margin:0}
+.sub{color:var(--muted);font-size:13px}
+.spacer{flex:1}
+.access{font-size:12px;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.access::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--faint)}
+.access.rw::before{background:var(--good)}
+
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;margin-inline:-8px}
+.tabs::-webkit-scrollbar{display:none}
+.stage-tab{border:0;background:none;padding:8px 10px 10px;cursor:pointer;display:inline-flex;align-items:baseline;gap:6px;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;font-size:13px}
+.stage-tab:hover{color:var(--ink)}
+.stage-tab .n{font:500 12px var(--f-mono);color:var(--faint);font-variant-numeric:tabular-nums}
+.stage-tab[aria-pressed="true"]{color:var(--ink);border-bottom-color:var(--c,var(--accent))}
+.stage-tab[aria-pressed="true"] .n{color:var(--ink)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--c,var(--s-new));flex:none;align-self:center}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-block:12px}
+.search{flex:1 1 220px;min-width:0;position:relative}
+.search input{width:100%;padding:7px 10px 7px 30px;border:1px solid var(--line);border-radius:7px;background:var(--surface)}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--faint)}
+.toolbar select{padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--surface);max-width:100%;color:var(--muted)}
+.seg{display:inline-flex;background:var(--sunk);border-radius:8px;padding:2px}
+.seg button{border:0;background:none;padding:5px 12px;cursor:pointer;color:var(--muted);border-radius:6px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(20,40,36,.08)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:6px 12px;cursor:pointer;white-space:nowrap;font-size:13px}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+.btn.danger{color:var(--bad)}
+.btn.danger.armed{background:var(--bad);border-color:var(--bad);color:#fff}
+body.v-history .filters,body.v-history .tabs{display:none}
+
+main{padding-block:16px 56px}
+.meta-line{display:flex;gap:14px;flex-wrap:wrap;align-items:baseline;color:var(--muted);font-size:13px;margin-bottom:10px}
+.meta-line b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.linkish{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-size:13px}
+
+/* Table */
+.tablebox{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:980px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:500;background:var(--surface);white-space:nowrap}
+th button{all:unset;cursor:pointer;display:inline-flex;gap:4px;align-items:center}
+th button:focus-visible{outline:2px solid var(--accent)}
+th .arr{opacity:0}
+th:hover .arr{opacity:.4}
+th[aria-sort] .arr{opacity:1;color:var(--accent)}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--hover)}
+tbody tr.sel td{background:var(--accent-soft)}
+tbody tr:last-child td{border-bottom:0}
+.who{display:grid;gap:1px;min-width:0}
+.who .co{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.who .pp{color:var(--muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:280px}
+.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:12.5px}
+.dim{color:var(--faint)}
+.tag{font-size:12.5px;color:var(--muted);white-space:nowrap}
+.tag.farm{color:var(--warn)}
+.occ{display:flex;align-items:center;gap:8px;min-width:110px}
+.bar{flex:none;width:48px;height:4px;border-radius:2px;background:var(--sunk);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.paused i{background:var(--faint)}
+.links{display:flex;gap:4px}
+.links a,.links span{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:6px;text-decoration:none;font:500 11px/1 var(--f-mono);color:var(--muted);background:var(--sunk)}
+.links a:hover{background:var(--accent-soft);color:var(--accent)}
+.links span{opacity:.35;background:none}
+.stagesel{appearance:none;border:1px solid transparent;border-radius:6px;padding:3px 8px 3px 20px;font-size:13px;background:transparent no-repeat;cursor:pointer;
+  background-image:radial-gradient(circle at 9px 50%,var(--c) 3.5px,transparent 4px);background-position:0 0;background-size:100% 100%}
+.stagesel:hover:not(:disabled){border-color:var(--line);background-color:var(--surface)}
+.stagesel:disabled{cursor:inherit;opacity:1;color:inherit}
+.enr{font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:var(--muted)}
+.enr::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--c)}
+.upd{font-size:12px;color:var(--faint);white-space:nowrap}
+
+.empty{padding:56px 20px;text-align:center;color:var(--muted);display:grid;gap:8px;justify-items:center}
+.empty h2{font:600 16px var(--f-body);color:var(--ink);margin:0}
+
+/* Board */
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:6px;min-height:200px;border:1px dashed transparent}
+.col.over{border-color:var(--accent);background:var(--accent-soft)}
+.col h3{margin:4px 6px 6px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:7px}
+.col h3 .n{margin-left:auto;font:500 12px var(--f-mono);color:var(--faint)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer;display:grid;gap:4px}
+.card:hover{border-color:var(--faint)}
+.card[draggable="true"]{cursor:grab}
+.card .co{font-weight:500;font-size:13px}
+.card .row{display:flex;gap:8px;color:var(--muted);font-size:12px;flex-wrap:wrap}
+.more{font-size:12px;color:var(--faint);text-align:center;padding:4px}
+
+/* History */
+.hist{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:32px;align-items:start}
+@media (max-width:900px){.hist{grid-template-columns:1fr}}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.stat{background:var(--surface);padding:12px 14px;display:grid;gap:2px}
+.stat .v{font:600 22px/1.1 var(--f-body);font-variant-numeric:tabular-nums}
+.stat .l{font-size:12px;color:var(--muted)}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 14px 10px}
+.chart h3,.side h3{margin:0 0 10px;font-size:13px;font-weight:500}
+.chart .note{font-size:12px;color:var(--muted);font-weight:400}
+.bars{display:grid;grid-template-columns:repeat(14,1fr);gap:6px;align-items:end;height:110px}
+.bars .b{display:grid;grid-template-rows:auto 1fr;justify-items:center;align-items:end;height:100%;min-width:0}
+.bars .b span{font:500 10.5px var(--f-mono);color:var(--muted);margin-bottom:3px}
+.bars .b i{display:block;width:100%;max-width:22px;border-radius:3px 3px 0 0;background:var(--accent);min-height:0}
+.bars .b.zero i{background:var(--line);height:2px!important}
+.bars .b.today i{background:color-mix(in srgb,var(--accent) 100%,#000 0%)}
+.days{display:grid;grid-template-columns:repeat(14,1fr);gap:6px;border-top:1px solid var(--line);padding-top:6px;margin-top:2px}
+.days span{font:500 10.5px var(--f-mono);color:var(--faint);text-align:center}
+.days span.today{color:var(--ink)}
+.feedtools{display:flex;gap:6px;flex-wrap:wrap;margin:22px 0 6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+.dayhead{font-size:12px;color:var(--muted);font-weight:500;padding:18px 0 6px;border-bottom:1px solid var(--line);position:sticky;top:0}
+.ev{display:grid;grid-template-columns:46px 10px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;align-items:start}
+.ev .tm{font:12px var(--f-mono);color:var(--faint);padding-top:1px}
+.ev .ic{width:7px;height:7px;border-radius:50%;background:var(--c,var(--faint));margin-top:6px}
+.ev .tx{min-width:0;overflow-wrap:anywhere}
+.ev .tx b{font-weight:600}
+.ev .co-link{background:none;border:0;padding:0;font-weight:600;cursor:pointer;color:var(--ink);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.ev .co-link:hover{text-decoration-color:var(--accent)}
+.ev .diff{display:block;font-size:12.5px;color:var(--muted);margin-top:3px}
+.ev .diff s{color:var(--faint)}
+.ev .quote{display:block;margin-top:4px;padding-left:10px;border-left:2px solid var(--line);color:var(--muted);white-space:pre-wrap}
+.side{display:grid;gap:22px}
+.side ol{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.side li{display:flex;justify-content:space-between;gap:10px;font-size:13px}
+.side li .num{color:var(--muted)}
+.mini{height:4px;border-radius:2px;background:var(--sunk);overflow:hidden;margin-top:4px}
+.mini i{display:block;height:100%;background:var(--c,var(--accent))}
+
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(27,33,32,.18);z-index:40}
+aside.drawer{position:fixed;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--surface);z-index:41;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.dhead{padding:18px 22px 12px;border-bottom:1px solid var(--line);display:grid;gap:6px}
+.dhead .top{display:flex;gap:10px;align-items:flex-start}
+.dhead h2{font:600 18px/1.25 var(--f-body);margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.x{border:0;background:none;cursor:pointer;color:var(--muted);font-size:22px;line-height:1;padding:2px 6px;border-radius:6px}
+.x:hover{background:var(--sunk)}
+.dhead .chips{display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--muted)}
+.dbody{overflow-y:auto;padding:4px 22px 28px;flex:1}
+.sec{padding-block:18px 4px;display:grid;gap:10px}
+.sec h4{margin:0;font-size:12px;font-weight:500;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+label.f{display:grid;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+label.f input,label.f select,label.f textarea{width:100%;border:1px solid var(--line);border-radius:7px;padding:7px 9px;background:var(--surface);color:var(--ink);font-size:14px}
+label.f input:hover,label.f select:hover,label.f textarea:hover{border-color:#D9DFDD}
+label.f textarea{min-height:68px;resize:vertical;line-height:1.45}
+label.f input:read-only,label.f textarea:read-only{border-color:transparent;padding-inline:0}
+label.f select:disabled{border-color:transparent;padding-inline:0;appearance:none;opacity:1}
+.fieldrow{display:flex;gap:6px;align-items:center}
+.fieldrow input{flex:1;min-width:0}
+.open{font-size:12px;white-space:nowrap}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+@media (max-width:520px){.kv{grid-template-columns:1fr}.kv dd{margin-bottom:6px}}
+.note{font-size:12.5px;color:var(--muted);background:var(--sunk);border-radius:7px;padding:8px 10px}
+.compose{display:flex;gap:8px;align-items:flex-end}
+.compose textarea{flex:1;min-width:0;min-height:42px;border:1px solid var(--line);border-radius:7px;padding:8px 10px;background:var(--surface);resize:vertical}
+#activity .ev{grid-template-columns:10px minmax(0,1fr);font-size:13px}
+#activity .ev .meta{display:block;font-size:11.5px;color:var(--faint);margin-top:2px}
+.dfoot{display:flex;gap:8px;justify-content:space-between;align-items:center;padding-top:22px;color:var(--faint);font-size:12px;flex-wrap:wrap}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 14px;border-radius:8px;font-size:13px;z-index:60;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+details.guide{margin-top:28px;color:var(--muted);font-size:13px;max-width:72ch}
+details.guide summary{cursor:pointer;color:var(--muted)}
+details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sunk);padding:1px 4px;border-radius:4px}
+@media (max-width:640px){.titlebar .sub{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>.abcheck{display:grid;gap:10px;margin-top:10px}
+.abhost{font-size:13px;display:grid;gap:4px}
+.ablist{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px}
+.ablist a{overflow-wrap:anywhere}
+
+<style>
+[hidden]{display:none!important}
+body.locked header.top,body.locked main{display:none}
+.login{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.login form{width:min(360px,100%);display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 24px}
+.login h1{font-size:18px}
+.login p{margin:0;color:var(--muted);font-size:13px}
+.login label{display:grid;gap:5px;font-size:12.5px;color:var(--muted)}
+.login input{border:1px solid var(--line);border-radius:7px;padding:9px 10px;font-size:14px;background:var(--surface);color:var(--ink)}
+.login .btn{padding:9px 12px;font-size:14px}
+.login .err{color:var(--bad);font-size:13px;min-height:1em}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb a{text-decoration:none}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:4px 0 18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:2px}
+.stat b{font:600 22px/1.15 var(--f-body);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat span{font-size:12.5px;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:18px}
+.panel h2{font:600 14px/1.3 var(--f-body);margin:0 0 4px}
+.panel p{margin:0 0 10px;color:var(--muted);font-size:12.5px}
+.grid400{display:grid;grid-template-columns:repeat(40,minmax(0,1fr));gap:2px}
+.grid400 a{aspect-ratio:1;border-radius:2px;background:var(--line);display:block}
+.grid400 a:hover{outline:2px solid var(--ink);outline-offset:0}
+@media (max-width:640px){.grid400{grid-template-columns:repeat(20,minmax(0,1fr))}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.ramp{display:inline-flex;gap:1px}
+.ramp i{margin:0;border-radius:0}
+.bar{display:inline-block;width:56px;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:8px}
+.bar i{display:block;height:100%;background:var(--accent)}
+td.num,th.num{text-align:right}
+.by{font-size:12px;color:var(--muted);white-space:nowrap}
+.by.claude{color:var(--accent)}
+.nm{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+tbody tr{cursor:default}
+tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
+.guide{margin-top:18px;font-size:13px;color:var(--muted)}
+.guide summary{cursor:pointer;color:var(--ink)}
+.guide li{margin-bottom:6px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;z-index:50}
+</style>
+</head>
+<body class="locked">
+<div class="login" id="login">
+  <form id="login-form" autocomplete="on">
+    <h1>First Class audit</h1>
+    <p>Sign in with your UAE Host Pipeline account.</p>
+    <label for="login-user">Username<input id="login-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label for="login-pass">Password<input id="login-pass" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit" id="login-btn">Sign in</button>
+    <div class="err" id="login-err" role="alert"></div>
+  </form>
+</div>
+<header class="top">
+  <div class="wrap">
+    <div class="titlebar">
+      <h1>First Class audit</h1>
+      <span class="sub">Airbnb calendars and prices for First Class Property Management’s 400 listings</span>
+      <span class="spacer"></span>
+      <span class="crumb"><a href="../">← Prospect list</a></span>
+      <button class="linkish" id="leave">Sign out</button>
+    </div>
+  </div>
+</header>
+<main class="wrap">
+  <div class="meta-line" id="meta">Loading the audit…</div>
+  <div class="stats" id="stats"></div>
+  <section class="panel">
+    <h2>All 400 listings, by share of the next 30 nights unavailable</h2>
+    <p>One square per listing, in the order they appear on First Class’s Airbnb profile. Darker means fewer open nights. Grey squares haven’t been checked yet.</p>
+    <div class="grid400" id="grid" role="list"></div>
+    <div class="legend"><span><span class="ramp" id="ramp"></span> 0% → 100% unavailable</span><span><i style="background:var(--bad)"></i>Blocked all 90 days</span><span><i style="background:var(--line)"></i>Not checked yet</span></div>
+  </section>
+  <div class="toolbar">
+    <div class="seg" role="group" aria-label="Show" id="seg">
+      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button>
+    </div>
+    <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Search listing name or number…" aria-label="Search listings" autocomplete="off"></div>
+    <span class="spacer"></span>
+    <label class="btn" for="imp">Import results CSV<input type="file" id="imp" accept=".csv,.txt,text/csv" hidden></label>
+    <button class="btn" id="export">Export CSV</button>
+  </div>
+  <div id="view"></div>
+  <details class="guide">
+    <summary>How the numbers are worked out</summary>
+    <ul>
+      <li><b>Unavailable</b> counts nights from today that Airbnb’s public calendar shows as blocked, over the next 14, 30 and 90 nights. Blocked nights include real bookings, owner blocks, gaps shorter than the minimum stay and dates past the booking window, so this is an upper limit on occupancy, not the occupancy itself.</li>
+      <li><b>All-in per night</b> is the total Airbnb showed for one sample stay (the first open check-in in the next 90 days, for the minimum stay or 2 nights), fees included, divided by the nights. It runs higher than the nightly rate.</li>
+      <li><b>Open-night value</b> is open nights × that all-in price. It is an illustration of what the open nights would earn at that price, not lost revenue.</li>
+      <li>Cards are split between Instinct and Claude so nobody checks the same listing twice. Results can be added with “Import results CSV”, using the same columns as the export; rows are matched by Airbnb listing id.</li>
+    </ul>
+  </details>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+const CFG={url:"https://askvikpqyamvtpvnybkx.supabase.co",anon:"sb_publishable_-eEy4eEi2srxBq2Si1c4dQ_uvh5YM_A"};
+(()=>{
+const REPORT_ID="report:first-class-audit", USER_DOMAIN="uae-host-crm.local";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=(n,d=0)=>n==null||n===""||isNaN(n)?"":Number(n).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:0});
+const COLS=["index","name","listing_url","checked_by","calendar_checked_at","quote_url","quote_checkin","quote_checkout","quote_nights","quote_total_aed","allin_average_per_night_aed","quote_checked_at","rate_note","unavailable_14","open_14","unavailable_pct_14","illustrative_open_night_value_14_aed","unavailable_30","open_30","unavailable_pct_30","illustrative_open_night_value_30_aed","unavailable_90","open_90","unavailable_pct_90","illustrative_open_night_value_90_aed"];
+const NUM=new Set(["quote_nights","quote_total_aed","allin_average_per_night_aed","unavailable_14","open_14","unavailable_pct_14","illustrative_open_night_value_14_aed","unavailable_30","open_30","unavailable_pct_30","illustrative_open_night_value_30_aed","unavailable_90","open_90","unavailable_pct_90","illustrative_open_night_value_90_aed"]);
+let sb=null, D=null, F="all", Q="", SORT={k:"index",dir:1};
+function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,3500)}
+function rows(){
+  if(!D) return [];
+  return (D.inventory||[]).map(x=>{const r=D["c"+x.i]||null; return {index:x.i,id:x.id,name:x.name,listing_url:"https://www.airbnb.ae/rooms/"+x.id,r,done:!!(r&&r.unavailable_pct_30!=null)}});
+}
+function color(p){ // light teal → deep teal
+  const t=Math.max(0,Math.min(1,p/100)); const a=[232,243,241], b=[11,79,74];
+  return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")})`;
+}
+function median(a){a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y); if(!a.length) return null; const m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2}
+function mean(a){a=a.filter(x=>x!=null&&!isNaN(x)); return a.length?a.reduce((s,x)=>s+x,0)/a.length:null}
+function render(){
+  const all=rows(), done=all.filter(x=>x.done), R=done.map(x=>x.r);
+  const by={}; for(const x of done){const b=x.r.checked_by||"Instinct"; by[b]=(by[b]||0)+1}
+  $("#meta").innerHTML=`<span><b>${done.length}</b> of ${all.length} listings checked</span>`+Object.entries(by).map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")+(D.updated_at?`<span>Last updated ${esc(new Date(D.updated_at).toLocaleString())}</span>`:"");
+  const blocked=R.filter(r=>r.unavailable_pct_90===100).length, low=R.filter(r=>r.unavailable_pct_90<20).length;
+  const st=(v,l)=>`<div class="stat"><b>${v??"—"}</b><span>${l}</span></div>`;
+  $("#stats").innerHTML=done.length?[
+    st(fmt(mean(R.map(r=>r.unavailable_pct_14)),0)+"%","Unavailable, next 14 nights (average)"),
+    st(fmt(mean(R.map(r=>r.unavailable_pct_30)),0)+"%","Unavailable, next 30 nights (average)"),
+    st(fmt(mean(R.map(r=>r.unavailable_pct_90)),0)+"%","Unavailable, next 90 nights (average)"),
+    st(fmt(blocked),"Blocked for all 90 nights"),
+    st(fmt(low),"Under 20% unavailable in 90 nights"),
+    st(fmt(median(R.map(r=>r.allin_average_per_night_aed)))+" AED","All-in price per night (median)")].join(""):"";
+  $("#grid").innerHTML=all.map(x=>{const r=x.r; const bg=!x.done?"var(--line)":r.unavailable_pct_90===100?"var(--bad)":color(r.unavailable_pct_30);
+    const t=x.done?`#${x.index} ${x.name}: ${r.unavailable_pct_30}% of next 30 nights unavailable`:`#${x.index} ${x.name}: not checked yet`;
+    return `<a role="listitem" href="#c${x.index}" style="background:${bg}" title="${esc(t)}" aria-label="${esc(t)}"></a>`}).join("");
+  let list=all.filter(x=>F==="all"||(F==="done"&&x.done)||(F==="todo"&&!x.done)||(F==="blocked"&&x.done&&x.r.unavailable_pct_90===100)||(F==="low"&&x.done&&x.r.unavailable_pct_90<20));
+  if(Q) list=list.filter(x=>(x.name+" "+x.index+" "+x.id).toLowerCase().includes(Q));
+  const val=(x,k)=>k==="index"?x.index:k==="name"?x.name:x.r?x.r[k]:null;
+  list.sort((a,b)=>{const x=val(a,SORT.k),y=val(b,SORT.k); const xe=x==null||x==="",ye=y==null||y===""; if(xe&&ye) return a.index-b.index; if(xe) return 1; if(ye) return -1; return (typeof x==="number"?x-y:String(x).localeCompare(String(y)))*SORT.dir});
+  const th=(k,l,n)=>`<th class="${n?"num":""}" ${SORT.k===k?`aria-sort="${SORT.dir>0?"ascending":"descending"}"`:""}><button data-sort="${k}">${l}<span class="arr">${SORT.k===k&&SORT.dir>0?"↑":"↓"}</span></button></th>`;
+  const pct=v=>v==null?'<span class="dim">—</span>':`${fmt(v,0)}%`;
+  $("#view").innerHTML=list.length?`<div class="tablebox"><table><thead><tr>${th("index","#",1)}${th("name","Listing")}${th("unavailable_pct_14","14 nights",1)}${th("unavailable_pct_30","30 nights",1)}${th("unavailable_pct_90","90 nights",1)}${th("allin_average_per_night_aed","All-in / night",1)}<th>Sample stay</th>${th("illustrative_open_night_value_30_aed","Open-night value, 30d",1)}<th>Checked by</th></tr></thead><tbody>${list.map(x=>{const r=x.r||{};
+    return `<tr id="c${x.index}" class="${r.unavailable_pct_90===100?"blocked":""}"><td class="num">${x.index}</td>
+    <td><a class="nm" href="${esc(x.listing_url)}" target="_blank" rel="noopener" title="${esc(x.name)}">${esc(x.name)}</a></td>
+    <td class="num">${pct(r.unavailable_pct_14)}</td>
+    <td class="num">${r.unavailable_pct_30!=null?`<span class="bar"><i style="width:${r.unavailable_pct_30}%"></i></span>`:""}${pct(r.unavailable_pct_30)}</td>
+    <td class="num">${pct(r.unavailable_pct_90)}</td>
+    <td class="num">${r.allin_average_per_night_aed!=null?fmt(r.allin_average_per_night_aed)+" AED":'<span class="dim">—</span>'}</td>
+    <td>${r.quote_checkin?`<span class="num">${esc(r.quote_checkin.slice(5))} → ${esc((r.quote_checkout||"").slice(5))}</span>`:r.rate_note?`<span class="dim" title="${esc(r.rate_note)}">${/qualifying/.test(r.rate_note)?"No open stay":"No price shown"}</span>`:'<span class="dim">—</span>'}</td>
+    <td class="num">${r.illustrative_open_night_value_30_aed!=null&&r.illustrative_open_night_value_30_aed!==""?fmt(r.illustrative_open_night_value_30_aed)+" AED":'<span class="dim">—</span>'}</td>
+    <td><span class="by ${r.checked_by==="Claude"?"claude":""}">${x.done?esc(r.checked_by||"Instinct"):r.err?`<span title="${esc(r.err)}">Couldn’t read</span>`:"Not checked"}</span></td></tr>`}).join("")}</tbody></table></div>`
+    :`<div class="empty"><h2>No listings match</h2><p>Try another filter.</p></div>`;
+}
+let raf=0; const schedule=()=>{clearTimeout(raf); raf=setTimeout(render,16)};
+document.addEventListener("click",e=>{
+  const s=e.target.closest("[data-sort]"); if(s){const k=s.dataset.sort; SORT=SORT.k===k?{k,dir:-SORT.dir}:{k,dir:k==="index"||k==="name"?1:-1}; render(); return}
+  const f=e.target.closest("[data-f]"); if(f){F=f.dataset.f; document.querySelectorAll("#seg button").forEach(b=>b.setAttribute("aria-pressed",b===f)); render(); return}
+  if(e.target.closest("#grid a")){ if(F!=="all"||Q){F="all";Q="";$("#q").value="";document.querySelectorAll("#seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f==="all"));render()} }
+});
+$("#q").addEventListener("input",e=>{Q=e.target.value.trim().toLowerCase(); schedule()});
+function csvCell(v){v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+$("#export").addEventListener("click",()=>{
+  const out=[COLS.join(",")].concat(rows().map(x=>COLS.map(c=>csvCell(c==="index"?x.index:c==="name"?x.name:c==="listing_url"?x.listing_url:x.r?(c==="checked_by"?(x.done?x.r.checked_by||"Instinct":""):x.r[c]):"")).join(",")));
+  const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([out.join("\n")],{type:"text/csv"})); a.download="first-class-audit.csv"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+});
+function parseCSV(t){const out=[];let row=[],f="",q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===","){row.push(f);f=""}else if(c==="\n"||c==="\r"){if(c==="\r"&&t[i+1]==="\n")i++;row.push(f);f="";if(row.some(v=>v!==""))out.push(row);row=[]}else f+=c}row.push(f);if(row.some(v=>v!==""))out.push(row);return out}
+$("#imp").addEventListener("change",async e=>{
+  const file=e.target.files[0]; e.target.value=""; if(!file||!D) return;
+  const t=(await file.text()).replace(/^﻿/,""); const m=parseCSV(t); if(m.length<2){toast("That file has no rows.");return}
+  const head=m[0].map(h=>h.trim()); const byId={}; for(const x of D.inventory) byId[x.id]=x.i;
+  const patch={}; let n=0, skipped=0;
+  for(const row of m.slice(1)){const o={}; head.forEach((h,i)=>o[h]=row[i]);
+    const id=((o.listing_url||"").match(/\/rooms\/(\d+)/)||[])[1]; const idx=byId[id];
+    if(!idx||o.unavailable_pct_30===""||o.unavailable_pct_30==null){skipped++;continue}
+    const r={}; for(const c of COLS){ if(["index","name","listing_url"].includes(c)) continue; let v=o[c]; if(v===undefined) continue; if(NUM.has(c)) v=v===""?null:Number(v); r[c]=v }
+    r.checked_by=(o.checked_by||"").trim()||"Instinct"; patch["c"+idx]=r; n++ }
+  if(!n){toast("No rows matched a First Class listing.");return}
+  patch.updated_at=new Date().toISOString();
+  const {error}=await sb.rpc("crm_update",{p_id:REPORT_ID,p_patch:patch,p_event:{pid:REPORT_ID,company:"First Class audit",kind:"note",text:`Imported ${n} audit rows from ${file.name}`,actor:localStorage.getItem("crm.actor")||"Someone"}});
+  if(error){toast("Couldn’t save the import: "+error.message);return}
+  toast(`Imported ${n} listings${skipped?`, skipped ${skipped}`:""}.`); load();
+});
+async function load(){
+  const {data,error}=await sb.from("prospects").select("data,updated_at").eq("id",REPORT_ID).maybeSingle();
+  if(error){$("#meta").textContent="The audit couldn’t be loaded. Reload to try again.";return}
+  if(!data){$("#meta").textContent="No audit data yet.";return}
+  D=data.data; D.updated_at=data.updated_at; render();
+}
+function showLogin(msg){document.body.classList.add("locked");$("#login").hidden=false;$("#login-err").textContent=msg||"";setTimeout(()=>$("#login-user").focus(),0)}
+async function start(){
+  const {data:ok,error}=await sb.rpc("crm_is_member");
+  if(error||!ok){await sb.auth.signOut().catch(()=>{});showLogin("This account doesn’t have access.");return}
+  document.body.classList.remove("locked");$("#login").hidden=true;
+  await load();
+  sb.channel("audit").on("postgres_changes",{event:"UPDATE",schema:"public",table:"prospects",filter:"id=eq."+REPORT_ID},p=>{if(p.new&&p.new.data){D=p.new.data;D.updated_at=p.new.updated_at;schedule()}}).subscribe();
+  setInterval(()=>{if(document.visibilityState==="visible")load()},60000);
+}
+$("#ramp").innerHTML=[0,20,40,60,80,100].map(p=>`<i style="background:${color(p)}"></i>`).join("");
+$("#leave").addEventListener("click",async()=>{try{await sb.auth.signOut()}catch{} showLogin()});
+$("#login-form").addEventListener("submit",async e=>{
+  e.preventDefault(); if(!sb) return;
+  const u=$("#login-user").value.trim().toLowerCase(), pw=$("#login-pass").value; if(!u||!pw) return;
+  const btn=$("#login-btn"); btn.disabled=true; btn.textContent="Signing in…";
+  const {error}=await sb.auth.signInWithPassword({email:u.includes("@")?u:u+"@"+USER_DOMAIN,password:pw});
+  btn.disabled=false; btn.textContent="Sign in";
+  if(error){$("#login-err").textContent=/invalid/i.test(error.message)?"Wrong username or password.":"Couldn’t sign in: "+error.message;return}
+  $("#login-pass").value=""; start();
+});
+(async()=>{
+  if(!window.supabase||/^__/.test(CFG.url)){showLogin("The database isn’t configured yet.");return}
+  sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"uae-host-crm-auth"}});
+  const {data}=await sb.auth.getSession(); if(data&&data.session) start(); else showLogin();
+})();
+})();
+</script>
+</body>
+</html>
