@@ -201,10 +201,11 @@ details.guide summary{cursor:pointer;color:var(--muted)}
 details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sunk);padding:1px 4px;border-radius:4px}
 @media (max-width:640px){.titlebar .sub{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>.abcheck{display:grid;gap:10px;margin-top:10px}
+.abcheck{display:grid;gap:10px;margin-top:10px}
 .abhost{font-size:13px;display:grid;gap:4px}
 .ablist{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px}
 .ablist a{overflow-wrap:anywhere}
+</style>
 
 <style>
 [hidden]{display:none!important}
@@ -237,6 +238,8 @@ body.locked header.top,body.locked main{display:none}
 .bar{display:inline-block;width:56px;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:8px}
 .bar i{display:block;height:100%;background:var(--accent)}
 td.num,th.num{text-align:right}
+th.num{font-family:inherit;font-size:12px}
+td .num{white-space:nowrap}
 .by{font-size:12px;color:var(--muted);white-space:nowrap}
 .by.claude{color:var(--accent)}
 .nm{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
