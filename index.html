@@ -209,9 +209,28 @@ details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sun
 .actor input{width:150px;border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12.5px;background:var(--surface)}
 .actor input:placeholder-shown{border-color:var(--warn)}
 .restore{margin-left:8px;font-size:12px;padding:2px 8px}
+body.locked header.top,body.locked main{display:none}
+.login{min-height:100vh;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.login form{width:min(360px,100%);display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 24px}
+.login h1{font-size:18px}
+.login p{margin:0;color:var(--muted);font-size:13px}
+.login label{display:grid;gap:5px;font-size:12.5px;color:var(--muted)}
+.login input{border:1px solid var(--line);border-radius:7px;padding:9px 10px;font-size:14px;background:var(--surface);color:var(--ink)}
+.login .btn{padding:9px 12px;font-size:14px}
+.login .err{color:var(--bad);font-size:13px;min-height:1em}
 </style>
 </head>
-<body>
+<body class="locked">
+<div class="login" id="login">
+  <form id="login-form" autocomplete="on">
+    <h1>UAE Host Pipeline</h1>
+    <p>Sign in to see and edit the prospect list.</p>
+    <label for="login-user">Username<input id="login-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+    <label for="login-pass">Password<input id="login-pass" name="password" type="password" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit" id="login-btn">Sign in</button>
+    <div class="err" id="login-err" role="alert"></div>
+  </form>
+</div>
 <header class="top">
   <div class="wrap">
     <div class="titlebar">
@@ -220,7 +239,7 @@ details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sun
       <span class="spacer"></span>
       <label class="actor" id="actor-wrap" hidden>Editing as <input id="actor" placeholder="Your name" autocomplete="name" maxlength="60"></label>
       <span class="access" id="access">Connecting…</span>
-      <button class="linkish" id="leave" hidden>Stop editing</button>
+      <button class="linkish" id="leave" hidden>Sign out</button>
     </div>
     <div class="tabs" id="funnel" role="group" aria-label="Filter by stage"></div>
   </div>
@@ -255,7 +274,7 @@ details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sun
   <div id="view"></div>
   <details class="guide">
     <summary>How editing, enrichment and history work</summary>
-    <p>This page is view-only unless it was opened with the edit link. The edit link carries a secret key; keep it to the people and agents who should change records. Every change made with it is logged in History with the editor's name, and deleted prospects can be restored from there.</p>
+    <p>Only signed-in accounts on the CRM's allow-list can see or change this list. Put your name in “Editing as” so History shows who made each change; deleted prospects can be restored from History.</p>
     <p>Enrichers fill email, phone, website, LinkedIn, unit count and notes, then set the enrichment status to <em>Enriched</em> or <em>Needs review</em>, with sources in “Sources and findings” and their name in “Enriched by”.</p>
   </details>
 </main>
@@ -284,7 +303,8 @@ const S = {
   sort:{key:"portfolio_n",dir:-1}, view:"table", open:null,
   mode:"loading", hist:[], histLoaded:false, hf:"all"
 };
-let sb=null, KEY=null, ACTOR="", actRows=[], armedDelete=null;
+let sb=null, ACTOR="", actRows=[], armedDelete=null, booted=false;
+const USER_DOMAIN="uae-host-crm.local";
 const chains={};
 
 const $=s=>document.querySelector(s);
@@ -299,13 +319,8 @@ const dayKey=d=>{const x=new Date(d); return x.getFullYear()+"-"+String(x.getMon
 const store={get(k){try{return localStorage.getItem(k)}catch{return null}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch{}}};
 function toast(msg){const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toast.h); toast.h=setTimeout(()=>t.hidden=true,3400)}
 
-/* ---------- edit key from the link ---------- */
-(function readKey(){
-  const m=location.hash.match(/(?:^#|&)key=([A-Za-z0-9_\-]+)/);
-  if(m){ KEY=m[1]; store.set("crm.key",KEY); try{history.replaceState(null,"",location.pathname+location.search)}catch{} }
-  else KEY=store.get("crm.key");
-  ACTOR=store.get("crm.actor")||"";
-})();
+ACTOR=store.get("crm.actor")||"";
+store.set("crm.key",null);
 {const v=store.get("crm.view"); if(["table","board","history"].includes(v)) S.view=v}
 if(location.hash==="#history") S.view="history";
 
@@ -350,7 +365,7 @@ function knownPeople(){
 /* ---------- rendering ---------- */
 function renderAccess(){
   const a=$("#access");
-  a.textContent={loading:"Connecting…",rw:"You can edit",ro:"View only",offline:"Not connected"}[S.mode];
+  a.textContent={loading:"Connecting…",rw:"Signed in",ro:"View only",offline:"Not connected"}[S.mode];
   a.classList.toggle("rw",S.mode==="rw");
   $("#actor-wrap").hidden=S.mode!=="rw"; $("#leave").hidden=S.mode!=="rw";
   $("#add").hidden=S.mode!=="rw"||S.view==="history"; $("#export").hidden=!S.loaded||S.view==="history";
@@ -542,7 +557,7 @@ function render(){
   $("#view").innerHTML = S.view==="board" ? renderBoard(list) : S.view==="history" ? renderHistory() : renderTable(list);
   for(const v of ["table","board","history"]) $("#v-"+v).setAttribute("aria-pressed",S.view===v);
 }
-let rq=0; function schedule(){ if(rq) return; rq=requestAnimationFrame(()=>{rq=0; render(); if(S.open) renderDrawer(false)}) }
+let rq=0; function schedule(){ if(rq) return; rq=setTimeout(()=>{rq=0; render(); if(S.open) renderDrawer(false)},16) }
 
 /* ---------- drawer ---------- */
 function field(id,r,key,label,opts={}){
@@ -644,8 +659,8 @@ const toEvent=h=>({...(h.data||{}),hid:h.id,at:h.at,pid:h.pid,kind:h.kind,actor:
 const toRow=p=>({...(p.data||{}),updated_at:p.data?.updated_at||p.updated_at});
 function actorName(){ const v=$("#actor").value.trim(); if(v!==ACTOR){ACTOR=v; store.set("crm.actor",v||null)} return ACTOR||"Anonymous editor" }
 async function rpc(fn,args){
-  const {data,error}=await sb.rpc(fn,{p_key:KEY,...args});
-  if(error){ if(/invalid edit key/i.test(error.message)){ S.mode="ro"; store.set("crm.key",null); KEY=null; toast("This edit link is no longer valid. The page is now view-only."); schedule() } throw error }
+  const {data,error}=await sb.rpc(fn,args);
+  if(error){ if(/not allowed|JWT|permission/i.test(error.message)){ toast("Your session ended. Sign in again to keep editing."); signOut() } throw error }
   return data;
 }
 function save(id,patch,ev){
@@ -654,7 +669,7 @@ function save(id,patch,ev){
   patch.updated_at=new Date().toISOString(); patch.updated_by=actor;
   const before=S.rows.get(id); if(before) S.rows.set(id,{...before,...patch}); schedule();
   chains[id]=(chains[id]||Promise.resolve()).then(()=>rpc("crm_update",{p_id:id,p_patch:patch,p_event:ev?{...ev,actor}:null}))
-    .catch(e=>{ if(before&&S.rows.get(id)) S.rows.set(id,before); schedule(); if(!/invalid edit key/i.test(e.message||"")) toast("Couldn’t save that change. Check your connection and try again.") });
+    .catch(e=>{ if(before&&S.rows.get(id)) S.rows.set(id,before); schedule(); if(!/not allowed|JWT|permission/i.test(e.message||"")) toast("Couldn’t save that change. Check your connection and try again.") });
   return chains[id];
 }
 function setField(id,key,raw){
@@ -686,7 +701,7 @@ document.addEventListener("click",async e=>{
   const chip=t.closest(".stage-tab"); if(chip){ S.f.stage=chip.dataset.stage; render(); return }
   const sb_=t.closest("[data-sort]"); if(sb_){ const k=sb_.dataset.sort; S.sort = S.sort.key===k?{key:k,dir:-S.sort.dir}:{key:k,dir:(k==="company"||k==="city"||k==="type"||k==="stage")?1:-1}; render(); return }
   if(t.id==="clear"||t.id==="clear2"){ S.f={q:"",city:"",type:"",kind:"",enrich:"",owner:"",stage:""}; ["#q","#f-city","#f-type","#f-kind","#f-enrich","#f-owner"].forEach(s=>$(s).value=""); render(); return }
-  if(t.id==="leave"){ store.set("crm.key",null); KEY=null; S.mode="ro"; toast("Edit mode off on this device. Open the edit link again to edit."); schedule(); return }
+  if(t.id==="leave"){ signOut(); return }
   if(t.closest("[data-stop]")) return;
   const row=t.closest("tr[data-id], .card[data-id]"); if(row){ openDrawer(row.dataset.id); return }
   if(t.id==="act-add"){ const ta=$("#act-text"), txt=ta.value.trim(); if(!txt||!S.open) return; ta.value="";
@@ -744,7 +759,6 @@ $("#export").onclick=()=>{
   document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove()},500);
 };
 window.addEventListener("hashchange",()=>{
-  if(/key=/.test(location.hash)){ location.reload(); return }
   const h=location.hash.slice(1); if(h==="history"){ if(S.view!=="history") setView("history") } else if(h&&S.rows.has(h)) openDrawer(h) });
 
 /* ---------- boot ---------- */
@@ -760,17 +774,20 @@ async function refetch(){
 }
 render();
 $("#actor").value=ACTOR;
-(async()=>{
-  if(!window.supabase||/^__/.test(CFG.url)){ S.mode="offline"; S.err="The database isn’t configured yet."; render(); return }
-  sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:false,autoRefreshToken:false}});
-  if(KEY){ try{ const {data}=await sb.rpc("crm_check_key",{p_key:KEY}); S.mode=data?"rw":"ro"; if(!data){store.set("crm.key",null); KEY=null; toast("That edit link isn’t valid. The page is view-only.")} }catch{ S.mode="ro" } }
-  else S.mode="ro";
+function showLogin(msg){ document.body.classList.add("locked"); $("#login").hidden=false; $("#login-err").textContent=msg||""; setTimeout(()=>$("#login-user").focus(),0) }
+function hideLogin(){ document.body.classList.remove("locked"); $("#login").hidden=true }
+async function signOut(){ try{ await sb.auth.signOut() }catch{} S.mode="loading"; S.rows=new Map(); S.deleted=new Map(); S.hist=[]; S.loaded=false; closeDrawer(); showLogin() }
+let channel=null, poll=null, live=false;
+async function startApp(){
+  const {data:ok,error}=await sb.rpc("crm_is_member");
+  if(error||!ok){ await sb.auth.signOut().catch(()=>{}); showLogin("This account doesn’t have access to the CRM."); return }
+  hideLogin(); S.mode="rw"; render();
   try{ await refetch() }catch(e){ S.mode="offline"; S.err="The prospect list couldn’t be loaded. Reload to try again."; render(); return }
   const h=location.hash.slice(1); if(h&&h!=="history"&&S.rows.has(h)) openDrawer(h);
-  let live=false, poll=null;
+  if(channel) return;
   const startPoll=()=>{ if(poll) return; S.stale=true; schedule(); poll=setInterval(()=>refetch().catch(()=>{}),20000) };
   const stopPoll=()=>{ if(poll){clearInterval(poll); poll=null} if(S.stale){S.stale=false; schedule()} };
-  sb.channel("crm")
+  channel=sb.channel("crm")
     .on("postgres_changes",{event:"*",schema:"public",table:"prospects"},p=>{
       const x=p.new; if(!x||!x.id){ if(p.old?.id){S.rows.delete(p.old.id)} schedule(); return }
       if(x.deleted_at){ S.rows.delete(x.id); S.deleted.set(x.id,toRow(x)) } else { S.deleted.delete(x.id); S.rows.set(x.id,toRow(x)) }
@@ -782,7 +799,25 @@ $("#actor").value=ACTOR;
     })
     .subscribe(status=>{ if(status==="SUBSCRIBED"){ live=true; stopPoll() } else if(status==="CHANNEL_ERROR"||status==="TIMED_OUT"||status==="CLOSED"){ live=false; startPoll() } });
   setTimeout(()=>{ if(!live) startPoll() },10000);
-  document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible") refetch().catch(()=>{}) });
+}
+$("#login-form").addEventListener("submit",async e=>{
+  e.preventDefault(); if(!sb) return;
+  let u=$("#login-user").value.trim().toLowerCase(); const pw=$("#login-pass").value;
+  if(!u||!pw) return;
+  const email=u.includes("@")?u:u+"@"+USER_DOMAIN;
+  const btn=$("#login-btn"); btn.disabled=true; btn.textContent="Signing in…"; $("#login-err").textContent="";
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  btn.disabled=false; btn.textContent="Sign in";
+  if(error){ $("#login-err").textContent=/invalid/i.test(error.message)?"Wrong username or password.":"Couldn’t sign in: "+error.message; return }
+  $("#login-pass").value="";
+  startApp();
+});
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"&&S.mode==="rw") refetch().catch(()=>{}) });
+(async()=>{
+  if(!window.supabase||/^__/.test(CFG.url)){ showLogin("The database isn’t configured yet."); return }
+  sb=window.supabase.createClient(CFG.url,CFG.anon,{auth:{persistSession:true,autoRefreshToken:true,storageKey:"uae-host-crm-auth"}});
+  const {data}=await sb.auth.getSession();
+  if(data&&data.session) startApp(); else showLogin();
 })();
 })();
 </script>
