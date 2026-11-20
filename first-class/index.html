@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<title>First Class Audit</title>
+<title>First Class audit</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -227,7 +227,7 @@ body.locked header.top,body.locked main{display:none}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:18px}
 .panel h2{font:600 14px/1.3 var(--f-body);margin:0 0 4px}
 .panel p{margin:0 0 10px;color:var(--muted);font-size:12.5px}
-.grid400{display:grid;grid-template-columns:repeat(40,minmax(0,1fr));gap:2px}
+.grid400{display:grid;grid-template-columns:repeat(var(--cols,40),minmax(0,1fr));gap:2px}
 .grid400 a{aspect-ratio:1;border-radius:2px;background:var(--line);display:block}
 .grid400 a:hover{outline:2px solid var(--ink);outline-offset:0}
 @media (max-width:640px){.grid400{grid-template-columns:repeat(20,minmax(0,1fr))}}
@@ -266,7 +266,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
   <div class="wrap">
     <div class="titlebar">
       <h1>First Class audit</h1>
-      <span class="sub">Airbnb calendars and prices for First Class Property Management’s 400 listings</span>
+      <span class="sub" id="sub">Airbnb calendars and prices for First Class Property Management’s listings</span>
       <span class="spacer"></span>
       <span class="crumb"><a href="../">← Prospect list</a></span>
       <button class="linkish" id="leave">Sign out</button>
@@ -278,14 +278,14 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
   <div class="stats" id="stats"></div>
   <section class="panel" id="xc" hidden></section>
   <section class="panel">
-    <h2>All 400 listings, by share of the next 30 nights unavailable</h2>
-    <p>One square per listing, in the order they appear on First Class’s Airbnb profile. Darker means fewer open nights. Grey squares haven’t been checked yet.</p>
+    <h2 id="gridh">All listings, by share of the next 30 nights unavailable</h2>
+    <p>One square per listing, in audit order. Darker means fewer open nights. Grey squares haven’t been checked yet.</p>
     <div class="grid400" id="grid" role="list"></div>
     <div class="legend"><span><span class="ramp" id="ramp"></span> 0% → 100% unavailable</span><span><i style="background:var(--bad)"></i>Blocked all 90 days</span><span><i style="background:var(--line)"></i>Not checked yet</span></div>
   </section>
   <div class="toolbar">
     <div class="seg" role="group" aria-label="Show" id="seg">
-      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button><button data-f="diff" aria-pressed="false">Checks differ</button><button data-f="nop" aria-pressed="false">No price</button>
+      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button><button data-f="diff" aria-pressed="false" id="fdiff" hidden>Checks differ</button><button data-f="nop" aria-pressed="false">No price</button>
     </div>
     <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Search listing name or number…" aria-label="Search listings" autocomplete="off"></div>
     <span class="spacer"></span>
@@ -299,7 +299,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
       <li><b>Unavailable</b> counts nights from today that Airbnb’s public calendar shows as blocked, over the next 14, 30 and 90 nights. Blocked nights include real bookings, owner blocks, gaps shorter than the minimum stay and dates past the booking window, so this is an upper limit on occupancy, not the occupancy itself.</li>
       <li><b>All-in per night</b> is the total Airbnb showed for one sample stay (the first open check-in in the next 90 days, for the minimum stay or 2 nights), fees included, divided by the nights. It runs higher than the nightly rate.</li>
       <li><b>Open-night value</b> is open nights × that all-in price. It is an illustration of what the open nights would earn at that price, not lost revenue.</li>
-      <li>Cards are split between Instinct and Claude so nobody checks the same listing twice. Results can be added with “Import results CSV”, using the same columns as the export; rows are matched by Airbnb listing id.</li>
+      <li>Results can be added with “Import results CSV”, using the same columns as the export; rows are matched by Airbnb listing id.</li>
     </ul>
   </details>
 </main>
@@ -308,7 +308,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
 <script>
 const CFG={url:"https://askvikpqyamvtpvnybkx.supabase.co",anon:"sb_publishable_-eEy4eEi2srxBq2Si1c4dQ_uvh5YM_A"};
 (()=>{
-const REPORT_ID="report:first-class-audit", USER_DOMAIN="uae-host-crm.local";
+const REPORT_ID="report:first-class-audit", NAME="First Class audit", USER_DOMAIN="uae-host-crm.local";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=(n,d=0)=>n==null||n===""||isNaN(n)?"":Number(n).toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:0});
@@ -327,6 +327,7 @@ function color(p){ // light teal → deep teal
 function xcTag(r){const c=r&&r.crosscheck; if(!c) return "";
   if(c.same) return ` <span class="claude" title="Claude checked this listing separately at ${esc((c.at||"").slice(11,16))} UTC and got the same calendar">· Claude ✓</span>`;
   return ` <span style="color:var(--warn)" title="${esc(c.note||"")} Claude saw ${c.unavailable.join(" / ")} unavailable nights (14 / 30 / 90).">· Claude differs</span>`}
+const money=v=>v>=1e6?fmt(v/1e6,2)+"M AED":fmt(v/1e3,0)+"k AED";
 function median(a){a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y); if(!a.length) return null; const m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2}
 function mean(a){a=a.filter(x=>x!=null&&!isNaN(x)); return a.length?a.reduce((s,x)=>s+x,0)/a.length:null}
 function render(){
@@ -334,6 +335,7 @@ function render(){
   const by={}; for(const x of done){const b=x.r.checked_by||"Instinct"; by[b]=(by[b]||0)+1}
   $("#meta").innerHTML=`<span><b>${done.length}</b> of ${all.length} listings checked</span>`+Object.entries(by).map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")+(D.updated_at?`<span>Last updated ${esc(new Date(D.updated_at).toLocaleString())}</span>`:"");
   const blocked=R.filter(r=>r.unavailable_pct_90===100).length, low=R.filter(r=>r.unavailable_pct_90<20).length;
+  const odd=R.filter(r=>r.allin_average_per_night_aed>10000).length;
   const st=(v,l)=>`<div class="stat"><b>${v??"—"}</b><span>${l}</span></div>`;
   const X=D.crosscheck; $("#xc").hidden=!X;
   if(X) $("#xc").innerHTML=`<h2>How the two checks compare</h2><p style="margin:0">${esc(X.source||"")}. Claude checked ${X.crosscheck_cards} of the same listings independently: <b>${X.crosscheck_same}</b> calendars match exactly, and in <b>${X.crosscheck_diff}</b> Claude counted 1–3 fewer unavailable nights because it missed days Airbnb marks as checkout-only, which can’t be booked for a night, so Instinct’s count is used. Where both read a price for the same dates (${X.price_same} listings), the totals are identical. Claude filled ${X.price_filled_by_claude.length} prices Instinct couldn’t read${X.price_filled_by_claude.length?` (cards ${X.price_filled_by_claude.join(", ")})`:""}. ${X.no_price.length} listings still have no price, mostly because they’re blocked for all 90 days.</p>`;
@@ -343,7 +345,12 @@ function render(){
     st(fmt(mean(R.map(r=>r.unavailable_pct_90)),0)+"%","Unavailable, next 90 nights (average)"),
     st(fmt(blocked),"Blocked for all 90 nights"),
     st(fmt(low),"Under 20% unavailable in 90 nights"),
-    st(fmt(median(R.map(r=>r.allin_average_per_night_aed)))+" AED","All-in price per night (median)")].join(""):"";
+    st(fmt(median(R.map(r=>r.allin_average_per_night_aed)))+" AED","All-in price per night (median)"),
+    st(fmt(R.reduce((s,r)=>s+(r.open_30||0),0)),"Open nights, next 30 (all listings)"),
+    st(money(R.filter(r=>!(r.allin_average_per_night_aed>10000)).reduce((s,r)=>s+(Number(r.illustrative_open_night_value_30_aed)||0),0)),"Open-night value, next 30 (at sample price)"+(odd?`, leaving out ${odd} listing${odd>1?"s":""} priced over 10,000 AED a night`:""))].join(""):"";
+  $("#gridh").textContent=`All ${all.length} listings, by share of the next 30 nights unavailable`;
+  $("#grid").style.setProperty("--cols",all.length>200?40:all.length>100?30:25);
+  $("#fdiff").hidden=!all.some(x=>x.r&&x.r.crosscheck);
   $("#grid").innerHTML=all.map(x=>{const r=x.r; const bg=!x.done?"var(--line)":r.unavailable_pct_90===100?"var(--bad)":color(r.unavailable_pct_30);
     const t=x.done?`#${x.index} ${x.name}: ${r.unavailable_pct_30}% of next 30 nights unavailable`:`#${x.index} ${x.name}: not checked yet`;
     return `<a role="listitem" href="#c${x.index}" style="background:${bg}" title="${esc(t)}" aria-label="${esc(t)}"></a>`}).join("");
@@ -388,9 +395,9 @@ $("#imp").addEventListener("change",async e=>{
     if(!idx||o.unavailable_pct_30===""||o.unavailable_pct_30==null){skipped++;continue}
     const r={}; for(const c of COLS){ if(["index","name","listing_url"].includes(c)) continue; let v=o[c]; if(v===undefined) continue; if(NUM.has(c)) v=v===""?null:Number(v); r[c]=v }
     r.checked_by=(o.checked_by||"").trim()||"Instinct"; patch["c"+idx]=r; n++ }
-  if(!n){toast("No rows matched a First Class listing.");return}
+  if(!n){toast("No rows matched a listing in this audit.");return}
   patch.updated_at=new Date().toISOString();
-  const {error}=await sb.rpc("crm_update",{p_id:REPORT_ID,p_patch:patch,p_event:{pid:REPORT_ID,company:"First Class audit",kind:"note",text:`Imported ${n} audit rows from ${file.name}`,actor:localStorage.getItem("crm.actor")||"Someone"}});
+  const {error}=await sb.rpc("crm_update",{p_id:REPORT_ID,p_patch:patch,p_event:{pid:REPORT_ID,company:NAME,kind:"note",text:`Imported ${n} audit rows from ${file.name}`,actor:localStorage.getItem("crm.actor")||"Someone"}});
   if(error){toast("Couldn’t save the import: "+error.message);return}
   toast(`Imported ${n} listings${skipped?`, skipped ${skipped}`:""}.`); load();
 });
