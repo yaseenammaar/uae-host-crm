@@ -201,7 +201,11 @@ details.guide summary{cursor:pointer;color:var(--muted)}
 details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sunk);padding:1px 4px;border-radius:4px}
 @media (max-width:640px){.titlebar .sub{display:none}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-</style>
+</style>.abcheck{display:grid;gap:10px;margin-top:10px}
+.abhost{font-size:13px;display:grid;gap:4px}
+.ablist{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px}
+.ablist a{overflow-wrap:anywhere}
+
 <style>
 :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 [hidden]{display:none!important}
@@ -294,7 +298,7 @@ const ENRICH_C = {"To enrich":"--faint","Enriched":"--good","Needs review":"--wa
 const PRIORITIES = ["","High","Medium","Low"];
 const LABELS = {company:"company",person:"contact name",role:"role",email:"email",phone:"phone",linkedin:"LinkedIn",website:"website",
   notes:"notes",portfolio:"portfolio detail",portfolio_n:"unit count",city:"emirate",owner:"owner",priority:"priority",next_step:"next step",
-  next_date:"follow-up date",enrich_status:"enrichment status",enrich_notes:"enrichment sources",enriched_by:"enriched by"};
+  next_date:"follow-up date",enrich_status:"enrichment status",enrich_notes:"enrichment sources",enriched_by:"enriched by",ab_listings_n:"Airbnb listing count"};
 const ENRICH_FIELDS = new Set(["email","phone","linkedin","website","portfolio_n","enrich_status","enrich_notes","enriched_by"]);
 
 const S = {
@@ -341,7 +345,7 @@ function visible(){
     }
     if(f.owner==="__none" && r.owner) continue;
     if(f.owner && f.owner!=="__none" && r.owner!==f.owner) continue;
-    if(q){ const hay=[r.company,r.person,r.role,r.notes,r.city,r.location,r.email,r.portfolio,r.enrich_notes,r.next_step,r.owner].join(" ").toLowerCase(); if(!hay.includes(q)) continue }
+    if(q){ const hay=[r.company,r.person,r.role,r.notes,r.city,r.location,r.email,r.portfolio,r.enrich_notes,r.next_step,r.owner,r.ab_host_name].join(" ").toLowerCase(); if(!hay.includes(q)) continue }
     out.push([id,r]);
   }
   const {key,dir}=S.sort;
@@ -400,6 +404,25 @@ function occCell(r){
   const paused=r.occ_cal===100;
   return `<span class="occ" title="${esc((r.occ_cal_raw||"")+(r.occ_cal_note?" · "+r.occ_cal_note:""))}"><span class="bar${paused?" paused":""}"><i style="width:${r.occ_cal}%"></i></span><span class="num">${r.occ_cal}%</span>${paused?'<span class="dim" style="font-size:11px">paused?</span>':""}</span>`;
 }
+function abCell(r){
+  if(r.ab_listings_n!=null) return `<span class="num" title="${esc(r.ab_check||"")}">${fmtN(r.ab_listings_n)}</span>`;
+  return `<span class="dim" title="${esc(r.ab_check||"Not checked on Airbnb")}">—</span>`;
+}
+function abListings(r){
+  const hosts=Array.isArray(r.ab_hosts)?r.ab_hosts:[];
+  if(!r.ab_check&&!hosts.length) return "";
+  const hostRows=hosts.map(h=>{
+    const u=safeUrl(h.url);
+    const facts=[h.listings_n!=null?fmtN(h.listings_n)+" listing"+(h.listings_n===1?"":"s"):"",
+      h.reviews!=null?fmtN(h.reviews)+" guest reviews":"", h.latest_review?"last review "+h.latest_review:"",
+      h.superhost?"Superhost":"", h.years?h.years+" yr"+(h.years===1?"":"s")+" hosting":""].filter(Boolean).join(" · ");
+    const ls=(h.listings||[]).map(l=>{const lu=safeUrl("https://www.airbnb.ae/rooms/"+l.id);
+      return `<li><a href="${esc(lu)}" target="_blank" rel="noopener">${esc(l.name||("Listing "+l.id))}</a>${l.type?` <span class="dim">${esc(l.type)}</span>`:""}${l.reviews?` <span class="dim num">${esc(String(l.reviews))} reviews</span>`:""}</li>`}).join("");
+    const more=h.listings_n!=null&&h.listings&&h.listings_n>h.listings.length?`<li class="dim">+${fmtN(h.listings_n-h.listings.length)} more on <a href="${esc(u||"")}" target="_blank" rel="noopener">the host profile</a></li>`:"";
+    return `<div class="abhost"><div><a href="${esc(u||"")}" target="_blank" rel="noopener"><b>${esc(h.name||"Airbnb host")}</b></a> <span class="dim">${esc(facts)}</span></div>${ls||more?`<ul class="ablist">${ls}${more}</ul>`:""}</div>`;
+  }).join("");
+  return `<div class="abcheck"><div class="note">${esc(r.ab_check||"")}${r.ab_checked_on?` Checked ${esc(r.ab_checked_on)}.`:""}</div>${hostRows}</div>`;
+}
 function linksCell(r){
   const li=safeUrl(r.linkedin), ab=safeUrl(r.airbnb_url||r.listing_url), web=safeUrl(r.website);
   const a=(u,l,t)=>u?`<a href="${esc(u)}" target="_blank" rel="noopener" title="${t}" data-stop>${l}</a>`:`<span title="No ${t}">${l}</span>`;
@@ -417,13 +440,14 @@ function sortTh(key,label){
 function renderTable(list){
   if(!list.length) return emptyState();
   return `<div class="tablebox"><table><thead><tr>
-    ${sortTh("company","Prospect")}${sortTh("city","Emirate")}${sortTh("type","Type")}${sortTh("portfolio_n","Portfolio")}
+    ${sortTh("company","Prospect")}${sortTh("city","Emirate")}${sortTh("type","Type")}${sortTh("portfolio_n","Portfolio")}${sortTh("ab_listings_n","On Airbnb")}
     ${sortTh("occ_cal","Booked, next 90d")}<th>Contact</th>${sortTh("stage","Stage")}${sortTh("enrich_status","Enrichment")}${sortTh("updated_at","Updated")}
   </tr></thead><tbody>${list.map(([id,r])=>`<tr tabindex="0" data-id="${esc(id)}" class="${S.open===id?"sel":""}">
     <td><div class="who"><span class="co">${esc(r.company||"Untitled")}</span><span class="pp">${esc([r.person,r.role].filter(Boolean).join(" · "))||'<span class="dim">No named contact</span>'}</span></div></td>
     <td>${esc(r.city)}</td>
     <td><span class="tag${r.kind==="Farm stays"?" farm":""}">${r.kind==="Farm stays"?"Farm stay":esc(r.type)}</span></td>
     <td class="num" title="${esc(r.portfolio)}">${r.portfolio_n!=null?fmtN(r.portfolio_n)+(/\+|at least/i.test(r.portfolio||"")?"+":""):'<span class="dim">—</span>'}</td>
+    <td>${abCell(r)}</td>
     <td>${occCell(r)}</td>
     <td>${linksCell(r)}</td>
     <td>${stageSelect(id,r)}</td>
@@ -615,7 +639,7 @@ function renderDrawer(full=true){
         ${safeUrl(r.airbnb_url)?`<dt>${esc(r.airbnb_link_type||"Link")}</dt><dd><a href="${esc(safeUrl(r.airbnb_url))}" target="_blank" rel="noopener">${esc(String(r.airbnb_url).replace(/^https?:\/\/(www\.)?/,"").replace(/\?.*$/,""))}</a></dd>`:""}
         ${safeUrl(r.listing_url)&&r.listing_url!==r.airbnb_url?`<dt>Listing</dt><dd><a href="${esc(safeUrl(r.listing_url))}" target="_blank" rel="noopener">${esc(String(r.listing_url).replace(/^https?:\/\/(www\.)?/,"").replace(/\?.*$/,""))}</a></dd>`:""}
         ${r.verified_on?`<dt>Checked</dt><dd>${esc(r.verified_on)}</dd>`:""}
-      </dl>${r.airbnb_verification?`<div class="note">${esc(r.airbnb_verification)}</div>`:""}</div>
+      </dl>${r.airbnb_verification?`<div class="note">${esc(r.airbnb_verification)}</div>`:""}${abListings(r)}</div>
 
       <div class="sec"><h4>Notes</h4>${field(id,r,"notes","Research notes",{area:true,rows:3})}</div>
 
@@ -752,7 +776,7 @@ $("#add").onclick=async()=>{
   catch{ toast("Couldn’t add a prospect. Try again.") }
 };
 $("#export").onclick=()=>{
-  const cols=["seq","company","person","role","city","type","kind","stage","owner","priority","next_step","next_date","email","phone","linkedin","website","portfolio","portfolio_n","occ_cal","occ_cal_raw","occ_self","enrich_status","enriched_by","enrich_notes","notes","airbnb_url","listing_url","location","updated_at","updated_by"];
+  const cols=["seq","company","person","role","city","type","kind","stage","owner","priority","next_step","next_date","email","phone","linkedin","website","portfolio","portfolio_n","occ_cal","occ_cal_raw","occ_self","enrich_status","enriched_by","enrich_notes","notes","airbnb_url","listing_url","ab_listings_n","ab_check","ab_checked_on","location","updated_at","updated_by"];
   const cell=v=>{ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v };
   const csv="﻿"+[cols.join(",")].concat(visible().map(([,r])=>cols.map(c=>cell(r[c])).join(","))).join("\n");
   const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="uae-host-pipeline.csv";
