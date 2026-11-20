@@ -276,6 +276,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
 <main class="wrap">
   <div class="meta-line" id="meta">Loading the audit…</div>
   <div class="stats" id="stats"></div>
+  <section class="panel" id="xc" hidden></section>
   <section class="panel">
     <h2>All 400 listings, by share of the next 30 nights unavailable</h2>
     <p>One square per listing, in the order they appear on First Class’s Airbnb profile. Darker means fewer open nights. Grey squares haven’t been checked yet.</p>
@@ -284,7 +285,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
   </section>
   <div class="toolbar">
     <div class="seg" role="group" aria-label="Show" id="seg">
-      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button>
+      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button><button data-f="diff" aria-pressed="false">Checks differ</button><button data-f="nop" aria-pressed="false">No price</button>
     </div>
     <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Search listing name or number…" aria-label="Search listings" autocomplete="off"></div>
     <span class="spacer"></span>
@@ -323,6 +324,9 @@ function color(p){ // light teal → deep teal
   const t=Math.max(0,Math.min(1,p/100)); const a=[232,243,241], b=[11,79,74];
   return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")})`;
 }
+function xcTag(r){const c=r&&r.crosscheck; if(!c) return "";
+  if(c.same) return ` <span class="claude" title="Claude checked this listing separately at ${esc((c.at||"").slice(11,16))} UTC and got the same calendar">· Claude ✓</span>`;
+  return ` <span style="color:var(--warn)" title="${esc(c.note||"")} Claude saw ${c.unavailable.join(" / ")} unavailable nights (14 / 30 / 90).">· Claude differs</span>`}
 function median(a){a=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y); if(!a.length) return null; const m=a.length>>1; return a.length%2?a[m]:(a[m-1]+a[m])/2}
 function mean(a){a=a.filter(x=>x!=null&&!isNaN(x)); return a.length?a.reduce((s,x)=>s+x,0)/a.length:null}
 function render(){
@@ -331,6 +335,8 @@ function render(){
   $("#meta").innerHTML=`<span><b>${done.length}</b> of ${all.length} listings checked</span>`+Object.entries(by).map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")+(D.updated_at?`<span>Last updated ${esc(new Date(D.updated_at).toLocaleString())}</span>`:"");
   const blocked=R.filter(r=>r.unavailable_pct_90===100).length, low=R.filter(r=>r.unavailable_pct_90<20).length;
   const st=(v,l)=>`<div class="stat"><b>${v??"—"}</b><span>${l}</span></div>`;
+  const X=D.crosscheck; $("#xc").hidden=!X;
+  if(X) $("#xc").innerHTML=`<h2>How the two checks compare</h2><p style="margin:0">${esc(X.source||"")}. Claude checked ${X.crosscheck_cards} of the same listings independently: <b>${X.crosscheck_same}</b> calendars match exactly, and in <b>${X.crosscheck_diff}</b> Claude counted 1–3 fewer unavailable nights because it missed days Airbnb marks as checkout-only, which can’t be booked for a night, so Instinct’s count is used. Where both read a price for the same dates (${X.price_same} listings), the totals are identical. Claude filled ${X.price_filled_by_claude.length} prices Instinct couldn’t read${X.price_filled_by_claude.length?` (cards ${X.price_filled_by_claude.join(", ")})`:""}. ${X.no_price.length} listings still have no price, mostly because they’re blocked for all 90 days.</p>`;
   $("#stats").innerHTML=done.length?[
     st(fmt(mean(R.map(r=>r.unavailable_pct_14)),0)+"%","Unavailable, next 14 nights (average)"),
     st(fmt(mean(R.map(r=>r.unavailable_pct_30)),0)+"%","Unavailable, next 30 nights (average)"),
@@ -341,7 +347,7 @@ function render(){
   $("#grid").innerHTML=all.map(x=>{const r=x.r; const bg=!x.done?"var(--line)":r.unavailable_pct_90===100?"var(--bad)":color(r.unavailable_pct_30);
     const t=x.done?`#${x.index} ${x.name}: ${r.unavailable_pct_30}% of next 30 nights unavailable`:`#${x.index} ${x.name}: not checked yet`;
     return `<a role="listitem" href="#c${x.index}" style="background:${bg}" title="${esc(t)}" aria-label="${esc(t)}"></a>`}).join("");
-  let list=all.filter(x=>F==="all"||(F==="done"&&x.done)||(F==="todo"&&!x.done)||(F==="blocked"&&x.done&&x.r.unavailable_pct_90===100)||(F==="low"&&x.done&&x.r.unavailable_pct_90<20));
+  let list=all.filter(x=>F==="all"||(F==="done"&&x.done)||(F==="todo"&&!x.done)||(F==="blocked"&&x.done&&x.r.unavailable_pct_90===100)||(F==="low"&&x.done&&x.r.unavailable_pct_90<20)||(F==="diff"&&x.r&&x.r.crosscheck&&!x.r.crosscheck.same)||(F==="nop"&&x.done&&!x.r.quote_total_aed));
   if(Q) list=list.filter(x=>(x.name+" "+x.index+" "+x.id).toLowerCase().includes(Q));
   const val=(x,k)=>k==="index"?x.index:k==="name"?x.name:x.r?x.r[k]:null;
   list.sort((a,b)=>{const x=val(a,SORT.k),y=val(b,SORT.k); const xe=x==null||x==="",ye=y==null||y===""; if(xe&&ye) return a.index-b.index; if(xe) return 1; if(ye) return -1; return (typeof x==="number"?x-y:String(x).localeCompare(String(y)))*SORT.dir});
@@ -356,7 +362,7 @@ function render(){
     <td class="num">${r.allin_average_per_night_aed!=null?fmt(r.allin_average_per_night_aed)+" AED":'<span class="dim">—</span>'}</td>
     <td>${r.quote_checkin?`<span class="num">${esc(r.quote_checkin.slice(5))} → ${esc((r.quote_checkout||"").slice(5))}</span>`:r.rate_note?`<span class="dim" title="${esc(r.rate_note)}">${/qualifying/.test(r.rate_note)?"No open stay":"No price shown"}</span>`:'<span class="dim">—</span>'}</td>
     <td class="num">${r.illustrative_open_night_value_30_aed!=null&&r.illustrative_open_night_value_30_aed!==""?fmt(r.illustrative_open_night_value_30_aed)+" AED":'<span class="dim">—</span>'}</td>
-    <td><span class="by ${r.checked_by==="Claude"?"claude":""}">${x.done?esc(r.checked_by||"Instinct"):r.err?`<span title="${esc(r.err)}">Couldn’t read</span>`:"Not checked"}</span></td></tr>`}).join("")}</tbody></table></div>`
+    <td><span class="by ${r.checked_by==="Claude"?"claude":""}">${x.done?esc(r.checked_by||"Instinct"):r.err?`<span title="${esc(r.err)}">Couldn’t read</span>`:"Not checked"}${xcTag(r)}${r.price_by?` <span class="claude" title="${esc(r.rate_note||"")}">· price by ${esc(r.price_by)}</span>`:""}</span></td></tr>`}).join("")}</tbody></table></div>`
     :`<div class="empty"><h2>No listings match</h2><p>Try another filter.</p></div>`;
 }
 let raf=0; const schedule=()=>{clearTimeout(raf); raf=setTimeout(render,16)};
