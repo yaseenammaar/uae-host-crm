@@ -205,6 +205,11 @@ details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sun
 .abhost{font-size:13px;display:grid;gap:4px}
 .ablist{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px}
 .ablist a{overflow-wrap:anywhere}
+.auditnav{display:flex;gap:2px;flex-wrap:wrap;align-items:center;font-size:13px}
+.auditnav span{color:var(--muted);margin-right:4px}
+.auditnav a{padding:4px 9px;border-radius:6px;text-decoration:none;color:var(--muted)}
+.auditnav a:hover{color:var(--ink);background:var(--sunk)}
+.auditnav a[aria-current=page]{background:var(--sunk);color:var(--ink);font-weight:600}
 </style>
 
 <style>
@@ -268,7 +273,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
       <h1>Royal audit</h1>
       <span class="sub" id="sub">Airbnb calendars and prices for Royal Holiday Homes’s listings</span>
       <span class="spacer"></span>
-      <span class="crumb"><a href="../">← Prospect list</a></span>
+      <nav class="auditnav" aria-label="Pages"><a href="../">Prospect list</a><a href="../first-class/">First Class</a><a href="../ivy/">Ivy</a><a href="../royal/" aria-current="page">Royal</a><a href="../vogue/">Vogue</a><a href="../compare/">Compare</a></nav>
       <button class="linkish" id="leave">Sign out</button>
     </div>
   </div>

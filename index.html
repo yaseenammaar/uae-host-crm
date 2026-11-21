@@ -205,6 +205,11 @@ details.guide code{font-family:var(--f-mono);font-size:12px;background:var(--sun
 .abhost{font-size:13px;display:grid;gap:4px}
 .ablist{margin:0;padding-left:18px;display:grid;gap:3px;font-size:12.5px}
 .ablist a{overflow-wrap:anywhere}
+.auditnav{display:flex;gap:2px;flex-wrap:wrap;align-items:center;font-size:13px}
+.auditnav span{color:var(--muted);margin-right:4px}
+.auditnav a{padding:4px 9px;border-radius:6px;text-decoration:none;color:var(--muted)}
+.auditnav a:hover{color:var(--ink);background:var(--sunk)}
+.auditnav a[aria-current=page]{background:var(--sunk);color:var(--ink);font-weight:600}
 </style>
 
 <style>
@@ -242,7 +247,7 @@ body.locked header.top,body.locked main{display:none}
       <h1>UAE Host Pipeline</h1>
       <span class="sub">Holiday-home operators and Airbnb hosts across the Emirates</span>
       <span class="spacer"></span>
-      <span class="crumb" style="font-size:13px">Audits: <a href="first-class/" style="text-decoration:none">First Class</a> · <a href="ivy/" style="text-decoration:none">Ivy</a> · <a href="royal/" style="text-decoration:none">Royal</a></span>
+      <nav class="auditnav" aria-label="Pages"><span>Audits</span><a href="./" aria-current="page">Prospect list</a><a href="./first-class/">First Class</a><a href="./ivy/">Ivy</a><a href="./royal/">Royal</a><a href="./vogue/">Vogue</a><a href="./compare/">Compare</a></nav>
       <label class="actor" id="actor-wrap" hidden>Editing as <input id="actor" placeholder="Your name" autocomplete="name" maxlength="60"></label>
       <span class="access" id="access">Connecting…</span>
       <button class="linkish" id="leave" hidden>Sign out</button>
