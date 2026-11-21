@@ -284,13 +284,13 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
   <section class="panel" id="xc" hidden></section>
   <section class="panel">
     <h2 id="gridh">All listings, by share of the next 30 nights unavailable</h2>
-    <p>One square per listing, in audit order. Darker means fewer open nights. Grey squares haven’t been checked yet.</p>
+    <p>One square per listing, in audit order. Darker means fewer open nights.<span id="greynote"> Grey squares haven’t been checked yet.</span></p>
     <div class="grid400" id="grid" role="list"></div>
-    <div class="legend"><span><span class="ramp" id="ramp"></span> 0% → 100% unavailable</span><span><i style="background:var(--bad)"></i>Blocked all 90 days</span><span><i style="background:var(--line)"></i>Not checked yet</span></div>
+    <div class="legend"><span><span class="ramp" id="ramp"></span> 0% → 100% unavailable</span><span><i style="background:var(--bad)"></i>Blocked all 90 days</span><span id="greyleg"><i style="background:var(--line)"></i>Not checked yet</span></div>
   </section>
   <div class="toolbar">
     <div class="seg" role="group" aria-label="Show" id="seg">
-      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false">Checked</button><button data-f="todo" aria-pressed="false">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button><button data-f="diff" aria-pressed="false" id="fdiff" hidden>Checks differ</button><button data-f="nop" aria-pressed="false">No price</button>
+      <button data-f="all" aria-pressed="true">All</button><button data-f="done" aria-pressed="false" id="fdone">Checked</button><button data-f="todo" aria-pressed="false" id="ftodo">Not checked</button><button data-f="blocked" aria-pressed="false">Blocked 90 days</button><button data-f="low" aria-pressed="false">Under 20% in 90 days</button><button data-f="diff" aria-pressed="false" id="fdiff" hidden>Checks differ</button><button data-f="nop" aria-pressed="false">No price</button>
     </div>
     <div class="search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="M11 11l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><input id="q" type="search" placeholder="Search listing name or number…" aria-label="Search listings" autocomplete="off"></div>
     <span class="spacer"></span>
@@ -338,7 +338,7 @@ function mean(a){a=a.filter(x=>x!=null&&!isNaN(x)); return a.length?a.reduce((s,
 function render(){
   const all=rows(), done=all.filter(x=>x.done), R=done.map(x=>x.r);
   const by={}; for(const x of done){const b=x.r.checked_by||"Instinct"; by[b]=(by[b]||0)+1}
-  $("#meta").innerHTML=`<span><b>${done.length}</b> of ${all.length} listings checked</span>`+Object.entries(by).map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")+(D.updated_at?`<span>Last updated ${esc(new Date(D.updated_at).toLocaleString())}</span>`:"");
+  $("#meta").innerHTML=(done.length===all.length?`<span>All <b>${all.length}</b> listings checked</span>`:`<span><b>${done.length}</b> of ${all.length} listings checked</span>`)+Object.entries(by).map(([k,v])=>`<span>${esc(k)}: <b>${v}</b></span>`).join("")+(D.updated_at?`<span>Last updated ${esc(new Date(D.updated_at).toLocaleString())}</span>`:"");
   const blocked=R.filter(r=>r.unavailable_pct_90===100).length, low=R.filter(r=>r.unavailable_pct_90<20).length;
   const odd=R.filter(r=>r.allin_average_per_night_aed>10000).length;
   const st=(v,l)=>`<div class="stat"><b>${v??"—"}</b><span>${l}</span></div>`;
@@ -356,6 +356,8 @@ function render(){
   $("#gridh").textContent=`All ${all.length} listings, by share of the next 30 nights unavailable`;
   $("#grid").style.setProperty("--cols",all.length>200?40:all.length>100?30:25);
   $("#fdiff").hidden=!all.some(x=>x.r&&x.r.crosscheck);
+  const complete=all.length>0&&done.length===all.length; for(const id of ["#ftodo","#fdone","#greynote","#greyleg"]) $(id).hidden=complete;
+  if(complete&&(F==="todo"||F==="done")){F="all";document.querySelectorAll("#seg button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f==="all"))}
   $("#grid").innerHTML=all.map(x=>{const r=x.r; const bg=!x.done?"var(--line)":r.unavailable_pct_90===100?"var(--bad)":color(r.unavailable_pct_30);
     const t=x.done?`#${x.index} ${x.name}: ${r.unavailable_pct_30}% of next 30 nights unavailable`:`#${x.index} ${x.name}: not checked yet`;
     return `<a role="listitem" href="#c${x.index}" style="background:${bg}" title="${esc(t)}" aria-label="${esc(t)}"></a>`}).join("");
