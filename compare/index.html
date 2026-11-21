@@ -282,7 +282,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
       <h1>Audit comparison</h1>
       <span class="sub">The same measures for every operator audit</span>
       <span class="spacer"></span>
-      <nav class="auditnav" aria-label="Pages"><a href="../">Prospect list</a><a href="../first-class/">First Class</a><a href="../ivy/">Ivy</a><a href="../royal/">Royal</a><a href="../vogue/">Vogue</a><a href="../compare/" aria-current="page">Compare</a></nav>
+      <nav class="auditnav" aria-label="Pages"><a href="../">Prospect list</a><a href="../first-class/">First Class</a><a href="../ivy/">Ivy</a><a href="../royal/">Royal</a><a href="../vogue/">Vogue</a><a href="../livbnb/">Livbnb</a><a href="../compare/" aria-current="page">Compare</a></nav>
       <button class="linkish" id="leave">Sign out</button>
     </div>
   </div>
@@ -305,7 +305,7 @@ tr.blocked td{background:color-mix(in srgb,var(--bad) 5%,transparent)}
 <script>
 const CFG={url:"https://askvikpqyamvtpvnybkx.supabase.co",anon:"sb_publishable_-eEy4eEi2srxBq2Si1c4dQ_uvh5YM_A"};
 (()=>{
-const OPS=[["report:first-class-audit","First Class","First Class Property Management"],["report:ivy-audit","Ivy","Ivy"],["report:royal-audit","Royal","Royal Holiday Homes"],["report:vogue-audit","Vogue","Vogue Vacation Homes"]], USER_DOMAIN="uae-host-crm.local";
+const OPS=[["report:first-class-audit","First Class","First Class Property Management"],["report:ivy-audit","Ivy","Ivy"],["report:royal-audit","Royal","Royal Holiday Homes"],["report:vogue-audit","Vogue","Vogue Vacation Homes"],["report:livbnb-audit","Livbnb","Livbnb"]], USER_DOMAIN="uae-host-crm.local";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=(n,d=0)=>n==null||isNaN(n)?"—":Number(n).toLocaleString("en-US",{maximumFractionDigits:d});
@@ -321,7 +321,7 @@ function measure(D){
   const P=R.filter(ok), PA=A.filter(ok);
   const booked=sum(PA.map(r=>r.unavailable_30*price(r))), open=sum(P.map(r=>Number(r.illustrative_open_night_value_30_aed)||r.open_30*price(r)));
   const dates=R.map(r=>(r.calendar_checked_at||"").slice(0,10)).filter(Boolean).sort();
-  return {n:R.length,blocked:R.length-A.length,active:A.length,odd:R.filter(r=>price(r)>10000).length,
+  return {n:R.length,total:(D.inventory||[]).length,blocked:R.length-A.length,active:A.length,odd:R.filter(r=>price(r)>10000).length,
     date:dates.length?dates[dates.length-1]:(D.created_at||"").slice(0,10),
     med:median(P.map(price)),u14:mean(A.map(r=>r.unavailable_pct_14)),u30:mean(A.map(r=>r.unavailable_pct_30)),u90:mean(A.map(r=>r.unavailable_pct_90)),
     later:A.length?sum(A.map(r=>r.unavailable_90-r.unavailable_30))/A.length:null,
@@ -332,7 +332,7 @@ function measure(D){
 }
 const ROWS=[
   ["Portfolio"],
-  ["Listings audited","n",v=>fmt(v)],
+  ["Listings audited","n",(v,m)=>m.total>v?`${fmt(v)} <span class="dim">of ${fmt(m.total)}</span>`:fmt(v)],
   ["Blocked all 90 nights (likely paused)","blocked",(v,m)=>`${fmt(v)} <span class="dim">(${pct(100*v/m.n)})</span>`],
   ["Active listings","active",v=>fmt(v)],
   ["All-in price per night (median)","med",v=>fmt(v)+" AED"],
